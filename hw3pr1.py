@@ -2,6 +2,8 @@
 import random
 import math
 from csaudio import play, readwav, writewav
+from copy import deepcopy
+import os
 
 
 def scale(L, scale_factor):
@@ -154,8 +156,50 @@ def flipflop(filename):
     print "Playing new sound..."
     play( 'out.wav' )
 
+class sound( object):
+    def __init__( self, filename = None):
+        if filename:
+            self.samps, self.sr = readwav(filename)
+        else:
+            self.samps, self.sr = None, None
+        self.original = deepcopy(self)
+
+    def changeSpeed( self, newsr):
+        self.sr = newsr
+        return self
+
+    def flipflop( self):
+        x = len(self.samps)/2
+        self.samps = self.samps[x:] + self.samps[:x]
+        return self
+
+    def reverse( self):
+        self.samps = self.samps[::-1]
+        return self
+
+    def scaleVolume( self, scale = 1.):
+        self.samps = [x * scale for x in self.samps]
+        return self
+
+    def staticize( self, p_static = 0.05):
+        self.samps = [ random.randrange(-32768, 32767) if 
+                    (random.random() < p_static) else x for x in self.samps]
+        return self
+
+    def overlay( self, other):
+
+        self.samps = map(sum, zip(self.samps, [] ))
 
 
+    def write( self, filename = 'out.wav'):
+        writewav( self.samps, self.sr, filename)
+        return self
+
+    def play( self):
+        self.write(filename = 'temp.wav')
+        play('temp.wav')
+        os.remove('temp.wav')
+        return self
 
 # Sound function to write #1:  reverse
 
