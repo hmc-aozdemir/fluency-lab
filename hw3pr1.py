@@ -4,6 +4,8 @@ import math
 from csaudio import play, readwav, writewav
 from copy import deepcopy
 import os
+import wave
+wave.big_endian = 0
 
 
 def scale(L, scale_factor):
@@ -38,7 +40,7 @@ def add_2(L, M):
 
     length = min(len(L), len(M))  # find the shorter length
     return [ L[i] + M[i] for i in range(length) ]
-    
+
     # Here's an alternative solution that uses the built-in zip function,
     # which truncates for us and creates tuples of the corresponding elements.
     #return [l + m for (l, m) in zip(L, M)]    
@@ -50,7 +52,7 @@ def add_scale_2(L, M, L_scale, M_scale):
        results, pairwise. If the two  lists have different lengths, the function 
        truncates the result so that it is as long as the shorter list.
     '''
-    
+
     return add_2(scale(L, L_scale), scale(M, M_scale))  # yay for code re-use!
 
 
@@ -61,7 +63,7 @@ def add_N(lists):
        lists have different lengths, the function truncates the result so that 
        it is as long as the shortest list.
     '''
-    
+
     return map(sum, apply(zip, lists)) # lots of higher-order functions here!
 
 
@@ -156,13 +158,22 @@ def flipflop(filename):
     print "Playing new sound..."
     play( 'out.wav' )
 
-class sound( object):
+class Sound( object):
     def __init__( self, filename = None):
         if filename:
             self.samps, self.sr = readwav(filename)
         else:
             self.samps, self.sr = None, None
-        self.original = deepcopy(self)
+
+    @staticmethod
+    def fromSamplesAndRate(samps, sr):
+        new_sound = Sound()
+        new_sound.samps = samps
+        new_sound.sr = samps
+        return new_sound
+
+    def clone(self):
+        return deepcopy(self)
 
     def changeSpeed( self, newsr):
         self.sr = newsr
@@ -182,14 +193,25 @@ class sound( object):
         return self
 
     def staticize( self, p_static = 0.05):
-        self.samps = [ random.randrange(-32768, 32767) if 
+        self.samps = [ random.randrange(-32768, 32767) if
                     (random.random() < p_static) else x for x in self.samps]
         return self
 
     def overlay( self, other):
+        self.samps = map(lambda x: x/2, map(sum, zip(self.samps, other.samps)))
+        return self
 
-        self.samps = map(sum, zip(self.samps, [] ))
+    def echo(self, time_delay):
+        self.samps = self.clone().delay(time_delay).overlay(self.clone().extend(time_delay))
+        return self
 
+    def delay(self, time_delay):
+        self.samps = [0 for t in xrange(int(time_delay * self.sr))] + self.samps
+        return self
+
+    def extend(self, time_delay):
+        self.samps = self.samps + [0 for t in xrange(int(time_delay * self.sr))]
+        return self
 
     def write( self, filename = 'out.wav'):
         writewav( self.samps, self.sr, filename)
@@ -200,46 +222,6 @@ class sound( object):
         play('temp.wav')
         os.remove('temp.wav')
         return self
-
-# Sound function to write #1:  reverse
-
-
-
-
-
-
-
-# Sound function to write #2:  volume
-
-
-
-
-
-
-
-# Sound function to write #3:  static
-
-
-
-
-
-
-
-# Sound function to write #4:  overlay
-
-
-
-
-
-
-
-# Sound function to write #5:  echo
-
-
-
-
-
-
 
 
 # Helper function for generating pure tones
@@ -272,15 +254,6 @@ def pure_tone(freq, time_in_seconds):
     print "Playing new sound..."
     play( 'out.wav' )
 
-
-
-
-# Sound function to write #6:  chord
-
-
-
-
-
-
-
+s = Sound('swfaith.wav')
+s.clone()
 
