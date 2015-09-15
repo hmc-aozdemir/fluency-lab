@@ -169,36 +169,61 @@ class Sound( object):
     def fromSamplesAndRate(samps, sr):
         new_sound = Sound()
         new_sound.samps = samps
-        new_sound.sr = samps
+        new_sound.sr = sr
+        return new_sound
+
+    @staticmethod
+    def fromNotes(notestring, tempo):
+        beat_seconds = 60. / tempo
+        print beat_seconds
+        split_notes = notestring.split()
+
+        new_sound = Sound()
+        new_sound.samps = []
+        new_sound.sr = 44100
+
+        previous_note_number = None
+
+        for note_char in split_notes:
+            previous_note_number = getNoteNumber(note_char, previous_note_number)
+            samps, sr = gen_pure_tone(get_frequency(previous_note_number), beat_seconds)
+            new_sound.append(Sound.fromSamplesAndRate(samps, sr))
+            new_sound.append(silence(beat_seconds))
+
         return new_sound
 
     def clone(self):
         return deepcopy(self)
 
-    def changeSpeed( self, newsr):
+    def changeSpeed(self, newsr):
         self.sr = newsr
         return self
 
-    def flipflop( self):
+    def flipflop(self):
         x = len(self.samps)/2
         self.samps = self.samps[x:] + self.samps[:x]
         return self
 
-    def reverse( self):
+    def reverse(self):
         self.samps = self.samps[::-1]
         return self
 
-    def scaleVolume( self, scale = 1.):
+    def scaleVolume(self, scale = 1.):
         self.samps = [x * scale for x in self.samps]
         return self
 
-    def staticize( self, p_static = 0.05):
+    def staticize(self, p_static = 0.05):
         self.samps = [ random.randrange(-32768, 32767) if
                     (random.random() < p_static) else x for x in self.samps]
         return self
 
-    def overlay( self, other):
+    def overlay(self, other):
         self.samps = map(lambda x: x/2, map(sum, zip(self.samps, other.samps)))
+        return self
+
+    def append(self, other):
+        assert self.sr == other.sr, "Sample rates must match, %d != %d" % (self.sr, other.sr)
+        self.samps += other.samps
         return self
 
     def echo(self, time_delay):
@@ -254,6 +279,43 @@ def pure_tone(freq, time_in_seconds):
     print "Playing new sound..."
     play( 'out.wav' )
 
+note_map = {'A':1,
+            'A#':2,
+            'B':3,
+            'C':-8,
+            'C#':-7,
+            'D':-6,
+            'D#':-5,
+            'E':-4,
+            'F':-3,
+            'F#':-2,
+            'G':-1,
+            'G#':0
+            }
+
+def getNoteNumber(note, previous_note_number = None):
+    note_fully_specified = note[-1:] in map(str, range(0, 9))
+    # if previous_note_number and not note_fully_specified:
+    #     return 4 * 12 + note_map[note]
+    #     possible = [(abs(previous_note_number - x), x)
+    #         for x in range(1,88) if x % 12 == note_map[note]]
+    #     return min(possible)[1]
+    if note_fully_specified:
+        return int(note[-1:]) * 12 + note_map[note[:-1]]
+    else:
+        return 4 * 12 + note_map[note]
+
+def get_frequency(note_number):
+    return int( 2.0 ** ( (note_number-49) / 12.) * 440 )
+
+def silence(seconds):
+    return Sound.fromSamplesAndRate([0 for i in xrange(int(44100*seconds))],44100)
+
 s = Sound('swfaith.wav')
 s.clone()
-
+a = Sound.fromNotes('''A A E5 E5 F#5 F#5 E5
+  D5 D5 C#5 C#5 B B A
+  E5 E5 D5 D5 C#5 C#5 B
+  E5 E5 D5 D5 C#5 C#5 B
+  A A E5 E5 F#5 F#5 E5
+  D5 D5 C#5 C#5 B B A''', 60)
